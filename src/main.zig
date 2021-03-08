@@ -1,7 +1,11 @@
 const std = @import("std");
-const c8 = @import("system/Chip8.zig");
-pub fn main() anyerror!void {
-    const device : c8.Chip8 = try c8.Chip8.init();
+const Chip8 = @import("system/Chip8.zig").Chip8;
 
-    std.log.info("{d}", .{device.memory[0]});
+
+
+pub fn main() anyerror!void {
+    var device : Chip8 = try Chip8.init();
+
+   // std.log.info("{d}", .{device.memory[0]});
+    try device.loadProgram("C:\\Users\\CoopWinter2021\\Documents\\zig-8\\programs\\Airplane.ch8");
 }
