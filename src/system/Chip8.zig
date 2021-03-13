@@ -375,7 +375,7 @@ pub const Chip8 = struct{
 
     fn loadIAddr(self: *Chip8, data:u16) InstructionError!void{
         const nnn =  data & 0x0FFF;
-        std.debug.print("LD \t I = {d}\n", .{nnn});
+        std.debug.print("LD \t I, {d}\n", .{nnn});
         self.I = nnn;
     }
 
