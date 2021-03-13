@@ -5,7 +5,7 @@ test "Chip8 Memory allocated"{
     const device : c8.Chip8 = try c8.Chip8.init();
     std.testing.expectEqual(device.memory.len, 4096);
     std.testing.expectEqual(device.V.len, 16);
-    std.testing.expectEqual(device.screen.len, (32*64));
+    std.testing.expectEqual(device.screenMemory.len, (32*64));
     std.testing.expectEqual(device.stack.len,16);
 }
 
@@ -66,7 +66,7 @@ test "Chip8 logic flow"{
 
 }
 
-test "Chip8 Register operations"{
+test "Chip8 Register operations basic arithmetic and logic"{
     var device : c8.Chip8 = try c8.Chip8.init();
     
     std.debug.print("\n",.{});
@@ -78,5 +78,23 @@ test "Chip8 Register operations"{
     //Set V[0] = V[0] AND V[1]
     try device.executeInstruction(0x8012);
     std.testing.expectEqual(@as(u16,1),device.V[0]);
-
+    //Set V[0] = V[0] XOR V[1]
+    try device.executeInstruction(0x8013);
+    std.testing.expectEqual(@as(u16,0),device.V[0]);
+    //Set V[0] = V[0] + V[1]
+    try device.executeInstruction(0x8014);
+    std.testing.expectEqual(@as(u16,1),device.V[0]);
+    //Set V[0] = V[0] - V[1]
+    try device.executeInstruction(0x8015);
+    std.testing.expectEqual(@as(u16,0),device.V[0]);
+    //Load V[1], 4
+    try device.executeInstruction(0x6004);
+    //SET V[0] = V[0] >> 1
+    try device.executeInstruction(0x8006);
+    std.testing.expectEqual(@as(u16,2),device.V[0]);
+    try device.executeInstruction(0x6103);
+    try device.executeInstruction(0x8017);
+    std.testing.expectEqual(@as(u16,1),device.V[0]);
+    try device.executeInstruction(0x800E);
+    std.testing.expectEqual(@as(u16,2),device.V[0]);
 }

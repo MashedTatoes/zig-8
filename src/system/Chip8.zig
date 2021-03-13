@@ -1,6 +1,8 @@
 const std = @import("std");
 const Stack = @import("Stack.zig").Stack;
+const Screen = @import("Screen.zig").Screen;
 const fs = std.fs;
+const rand = std.rand;
 const Allocator = std.mem.Allocator;
 pub const Chip8Error = error{
     Chip8InitError,
@@ -8,6 +10,13 @@ pub const Chip8Error = error{
     ProgramTooLarge,
     CouldNotFindProgram
 };
+
+const prng = comptime rand.DefaultPrng.init(blk: {
+    var seed : u64 = undefined;
+    try std.os.getrandom(std.mem.asBytes(&seed));
+    break: blk seed;
+});
+
 
 
 pub const Chip8 = struct{
@@ -18,22 +27,27 @@ pub const Chip8 = struct{
     delay: u8 = 0,
     sound: u8 = 0,
     memory: []u8,
-    screen: []u8,
+    screenMemory: []u8,
     stack: Stack,
     key: u8 = 0,
-    allocator : *Allocator,
+    allocator : *std.heap.ArenaAllocator,
     instructionSet : InstructionSet,
+    screen: Screen,
+    stopExecution:bool = false,
+    
 
     pub fn init() Chip8Error!Chip8 {
 
-        var heap :[32 + 4096 + (64*32) + 32] u8 = undefined;
+        //var heap :[32 + 4096 + (64*32) + 32] u8 = undefined;
         
-        const allocator = &std.heap.FixedBufferAllocator.init(&heap).allocator;
+        const arena = &std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        
+        const allocator = &arena.allocator;
         
 
         errdefer{
             std.debug.print("Error initialzing chip8\n",.{});
-            allocator.free(&heap);
+            arena.deinit();
         }
 
         var register = allocator.alloc(u16, 16) catch|err|{
@@ -43,7 +57,7 @@ pub const Chip8 = struct{
         var mem = allocator.alloc(u8, 4096) catch|err|{
             return Chip8Error.Chip8InitError;
         };
-        var screen = allocator.alloc(u8, 64*32) catch|err|{
+        var screenMemory = allocator.alloc(u8, 64*32) catch|err|{
             return Chip8Error.Chip8InitError;
         };
         
@@ -54,15 +68,19 @@ pub const Chip8 = struct{
         for (register) |v, i|{
             register[i] = 0;
         }
+        for (mem) |v,i|{
+            mem[i] = 0;
+        }
         
         
         var device = Chip8{
             .V = register,
             .memory = mem,
-            .screen = screen,
-            .allocator = allocator,
+            .screenMemory = screenMemory,
+            .allocator = arena,
             .instructionSet = InstructionSet.init(),
-            .stack = stack
+            .stack = stack,
+            .screen = Screen.init()
         };
 
        try device.fillInstructionSet();
@@ -71,7 +89,10 @@ pub const Chip8 = struct{
 
     }
 
-    
+    pub fn deinit(self: *Chip8) void {
+        self.allocator.deinit();
+        self.screen.deinit();
+    }
 
     pub fn loadProgram(self:*Chip8,path: []const u8 ) Chip8Error!u64{
         
@@ -82,7 +103,7 @@ pub const Chip8 = struct{
         var size:u64 =  file.getEndPos() catch |err| {
             return Chip8Error.ProgramOpenError;
         };
-        std.debug.print("{d}",.{size});
+        std.debug.print("Program {s} size(bytes): {d} \n",.{path,size});
 
         if(size > 0xDFF){
             return Chip8Error.ProgramTooLarge;
@@ -97,6 +118,7 @@ pub const Chip8 = struct{
     }
 
     fn fillInstructionSet(self: *Chip8) Chip8Error!void{
+        
         self.instructionSet.set[0] = Operation { .func = sysInstruction};
         self.instructionSet.set[1] = Operation { .func = jump};
         self.instructionSet.set[2] = Operation { .func = call};
@@ -133,6 +155,36 @@ pub const Chip8 = struct{
     fn loadIntoRegister(self: *Chip8, x: u16, val: u16) void{
         self.V[x] = val;
 
+    }
+
+    pub fn run(self: *Chip8, programSize: u64) void{
+        
+        while((self.PC < 0x200 + programSize) and !self.screen.shouldClose()){
+            if(self.stopExecution == false){
+                var instruction : u16 = 0;
+                instruction = ((instruction | self.memory[self.PC]) <<8) | self.memory[self.PC + 1]; 
+
+                std.debug.print("{d} {d} \t", .{self.PC,instruction});
+                self.executeInstruction(instruction) catch |err|{
+                    switch(err) {
+                        error.NotImplemented => {
+                            std.debug.print("Instruction {d} not implemented\n", .{instruction});
+                            self.stopExecution = true;
+                        },
+                        else => {
+                            std.debug.print("Error executing instruction: {d}, at address {d}, exiting", .{instruction,self.PC});
+                            self.stopExecution = true;
+                        }
+                    }
+
+                };
+                self.PC += 2;
+            }
+            self.screen.render();
+            self.screen.pollEvents();
+            
+            
+        }
     }
 
 
@@ -216,17 +268,32 @@ pub const Chip8 = struct{
 
     }
 
+    
+
     fn bitRegOperations(self: *Chip8, data:u16) InstructionError!void{
         const x = (data & 0x0F00) >> 8;
         const y = (data & 0x00F0) >> 4;
         const op = data & 0x000F;
 
         const result = switch(op){
-            0 => self.V[y],
-            1 => self.V[x] | self.V[y],
-            2 => self.V[x] & self.V[y],
-            3 => self.V[x] ^ self.V[y],
+            0 => blk: {
+                std.debug.print("LD \t V{d},V{d}\n",.{x,y});
+                break: blk self.V[y];
+            },
+            1 =>  blk : {
+                std.debug.print("OR \t V{d},V{d}\n",.{x,y});
+                break: blk self.V[x] | self.V[y];
+            },
+            2 => blk : {
+                std.debug.print("AND \t V{d},V{d}\n",.{x,y});
+                break: blk self.V[x] & self.V[y];
+            },
+            3 => blk: { 
+                std.debug.print("XOR \t V{d},V{d}\n",.{x,y});
+                break: blk self.V[x] ^ self.V[y];
+            },
             4 => blk :{
+                std.debug.print("ADD \t V{d},V{d}\n",.{x,y});
                 const result = self.V[x] + self.V[y];
                 if(result > 255){
                     self.V[0xF] = 1;
@@ -235,6 +302,7 @@ pub const Chip8 = struct{
 
             },
             5=> blk :{
+                std.debug.print("SUB \t V{d},V{d}\n",.{x,y});
                 const result = self.V[x] - self.V[y];
                 if(self.V[x] > self.V[y]){
                     self.V[0xF] = 1;
@@ -242,6 +310,7 @@ pub const Chip8 = struct{
                 break: blk result;
             },
             6=> blk:{
+                std.debug.print("SHR \t V{d}, 1\n",.{x});
                 const result = self.V[x] >> 1;
                 if(self.V[x] & 1 == 1){
                     self.V[0xF] = 1;
@@ -252,6 +321,7 @@ pub const Chip8 = struct{
                 break: blk result;
             },
             7 => blk:{
+                std.debug.print("SUBN \t V{d},V{d}\n",.{x,y});
                 const result = self.V[y] - self.V[x];
                 if(self.V[y] > self.V[x]){
                     self.V[0xF] = 1;
@@ -262,6 +332,7 @@ pub const Chip8 = struct{
                 break: blk result;
             },
             0xE => blk:{
+                std.debug.print("SHL \t V{d}, 1\n",.{x});
                 const result = self.V[x] * 2;
                 if(self.V[x] & 1 == 1){
                     self.V[0xF] = 1;
@@ -280,6 +351,32 @@ pub const Chip8 = struct{
         
         self.V[x] = result;
         
+
+
+    }
+
+    fn skipNotEqualReg(self: *Chip8, data:u16) InstructionError!void{
+        const x = (data & 0x0F00) >> 8;
+        const y = (data & 0x00F0) >> 4;
+        std.debug.print("SNE \t V{d} = V{d}\n", .{x,y});
+        if(self.V[x] != self.V[y]){
+            self.PC += 2;
+        }
+
+    }
+
+    fn jumpRegZero(self: *Chip8, data:u16) InstructionError!void{
+        const addr : u16 = data & 0x0FFF;
+        std.debug.print("JMP \t {d} + V0\n",.{addr});
+        self.PC = addr + self.V[0];
+    }
+
+    fn rnd(self: *Chip8, data:u16) InstructionError!void{
+        const random = &prng.random;
+        const x = (data & 0x0F00) >> 8;
+        const kk =  data & 0x00FF;
+
+        self.V[x] = random.int(u8) & kk;
 
 
     }
