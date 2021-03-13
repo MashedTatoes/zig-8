@@ -15,12 +15,11 @@ pub const Screen = struct{
     window: ?*GLFWwindow = undefined,
     vbufferId: gl.Buffer = undefined,
     vertexBuffer : std.ArrayList(f32) = undefined,
-
     indexBufferId: gl.Buffer = undefined,
     indexBuffer : std.ArrayList(u32)= undefined,
-
     vao : gl.VertexArray = undefined,
     allocator: *Allocator,
+    program : gl.Program = undefined,
 
 
 
@@ -49,6 +48,10 @@ pub const Screen = struct{
         gl.enableVertexAttribArray(0);
         gl.enableVertexArrayAttrib(screen.vao,0);
         gl.vertexAttribPointer(0,2,gl.Type.float,false,@sizeOf(f32),0);
+        
+        screen.indexBufferId = gl.genBuffer();
+        gl.bindBuffer(screen.indexBufferId,gl.BufferTarget.index_buffer);
+        
 
         //gl.glGenVertexArrays(1,@intToPtr(?*c_uint, screen.vao));
 
