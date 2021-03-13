@@ -16,14 +16,19 @@ pub fn build(b: *std.build.Builder) void {
     const tests = b.addTest("test.zig");
 
     exe.addIncludeDir("deps/glfw/include");
+    exe.addIncludeDir("deps/glad/include");
+    exe.addCSourceFile("deps/glad/src/glad.c",&[_][]const u8 {});
+    
     exe.addLibPath("deps/glfw/src/Release");
 
+    exe.addPackagePath("gl","deps/zgl-glad/zgl.zig");
     exe.linkSystemLibrary("glfw3");
     exe.linkSystemLibrary("c");
     exe.linkSystemLibrary("opengl32");
     exe.linkSystemLibrary("user32");
     exe.linkSystemLibrary("gdi32");
     exe.linkSystemLibrary("shell32");
+    
 
     tests.addIncludeDir("deps/glfw/include");
     tests.addLibPath("deps/glfw/src/Release");

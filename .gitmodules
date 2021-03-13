@@ -1,3 +1,12 @@
 [submodule "deps/glfw"]
 	path = deps/glfw
 	url = https://github.com/glfw/glfw.git
+[submodule "deps/zgl"]
+	path = deps/zgl
+	url = https://github.com/ziglibs/zgl.git
+[submodule "deps/libepoxy"]
+	path = deps/libepoxy
+	url = https://github.com/anholt/libepoxy.git
+[submodule "deps/zgl-glad"]
+	path = deps/zgl-glad
+	url = https://github.com/MashedTatoes/zgl.git
