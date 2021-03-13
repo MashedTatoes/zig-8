@@ -11,11 +11,7 @@ pub const Chip8Error = error{
     CouldNotFindProgram
 };
 
-const prng = comptime rand.DefaultPrng.init(blk: {
-    var seed : u64 = undefined;
-    try std.os.getrandom(std.mem.asBytes(&seed));
-    break: blk seed;
-});
+var prng : std.rand.Xoroshiro128 = undefined;
 
 
 
@@ -72,7 +68,14 @@ pub const Chip8 = struct{
             mem[i] = 0;
         }
         
-        
+        prng = rand.DefaultPrng.init(blk: {
+            var seed : u64 = undefined;
+            std.os.getrandom(std.mem.asBytes(&seed)) catch |err|{
+                break: blk 0;
+            };
+            break: blk seed;
+        });
+
         var device = Chip8{
             .V = register,
             .memory = mem,
@@ -128,6 +131,11 @@ pub const Chip8 = struct{
         self.instructionSet.set[6] = Operation{.func = load};
         self.instructionSet.set[7] = Operation{.func = addReg};
         self.instructionSet.set[8] = Operation{.func = bitRegOperations};
+        self.instructionSet.set[9] = Operation{.func = skipNotEqualReg};
+        self.instructionSet.set[0xA] = Operation{.func = loadIAddr};
+        self.instructionSet.set[0xB] = Operation{.func = jumpRegZero};
+        self.instructionSet.set[0xC] = Operation{.func = rnd};
+
 
     }
 
@@ -168,7 +176,7 @@ pub const Chip8 = struct{
                 self.executeInstruction(instruction) catch |err|{
                     switch(err) {
                         error.NotImplemented => {
-                            std.debug.print("Instruction {d} not implemented\n", .{instruction});
+                            std.debug.print("Instruction {d} not implemented, stopping execution\n", .{instruction});
                             self.stopExecution = true;
                         },
                         else => {
@@ -215,7 +223,7 @@ pub const Chip8 = struct{
         self.stack.push(self.PC) catch |err|{
             return InstructionError.ExecutionError;
         };
-        self.PC = addr;
+        self.PC = addr - 0x2;
     }
 
     fn skipNotEqual(self: *Chip8, data:u16) InstructionError!void{
@@ -363,6 +371,12 @@ pub const Chip8 = struct{
             self.PC += 2;
         }
 
+    }
+
+    fn loadIAddr(self: *Chip8, data:u16) InstructionError!void{
+        const nnn =  data & 0x0FFF;
+        std.debug.print("LD \t I = {d}\n", .{nnn});
+        self.I = nnn;
     }
 
     fn jumpRegZero(self: *Chip8, data:u16) InstructionError!void{
