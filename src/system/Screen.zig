@@ -90,7 +90,7 @@ pub const Screen = struct{
         for(pixels) |val,i|{
            var pixel = @intToFloat(f32,i);
             if(val == 1){
-                pixelCount += 1;
+                
                 self.vertexBuffer.appendSlice(&[4*3]f32 {
                     0,0,pixel,
                     1,0,pixel,

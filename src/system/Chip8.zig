@@ -101,9 +101,9 @@ pub const Chip8 = struct{
         self.screen.deinit();
     }
 
-    pub fn loadProgram(self:*Chip8,path: []const u8 ) Chip8Error!u64{
+    pub fn loadProgram(self:*Chip8,rom: []const u8 ) Chip8Error!u64{
         
-        
+        std.debug.print("\nLoading program: {s}", .{path});
         var file =  fs.openFileAbsolute(path, fs.File.OpenFlags{.read = true,.write=false}) catch |err|{
             return Chip8Error.ProgramOpenError;
         };
@@ -117,11 +117,21 @@ pub const Chip8 = struct{
         }
 
         defer file.close();
+        
         const result = file.preadAll(self.memory[0x200..],0) catch |err|{
             return Chip8Error.ProgramOpenError;
         };
         return size;
 
+    }
+
+    pub fn loadRom(self: *Chip8, rom: []const u8) Chip8Error!void{
+        
+        if(rom.len > 0xDFF){
+            return Chip8Error.ProgramTooLarge;
+        }
+        std.mem.copy(u8,self.memory[0x200..],rom);
+        std.debug.print("Read {d} size program\n",.{rom.len});
     }
 
     fn fillInstructionSet(self: *Chip8) Chip8Error!void{
