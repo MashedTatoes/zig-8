@@ -67,6 +67,10 @@ pub const Chip8 = struct{
         for (mem) |v,i|{
             mem[i] = 0;
         }
+        for(screenMemory) |v,i|{
+            screenMemory[i] = 0;
+        }
+        
         
         prng = rand.DefaultPrng.init(blk: {
             var seed : u64 = undefined;
@@ -188,6 +192,7 @@ pub const Chip8 = struct{
                 };
                 self.PC += 2;
             }
+            self.screen.setPixels(self.screenMemory);
             self.screen.render();
             self.screen.pollEvents();
             

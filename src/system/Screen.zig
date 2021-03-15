@@ -11,6 +11,8 @@ const VERTEX_SIZE = 3;
 const Allocator = std.mem.Allocator;
 const fragmentShader = @embedFile("./shader/c8frag.glsl");
 const vertexShader = @embedFile("./shader/c8vert.glsl");
+const clear = .{.color = true,.depth = false, .stencil = false};
+
 
 pub const Screen = struct{
     window: ?*GLFWwindow = undefined,
@@ -50,7 +52,7 @@ pub const Screen = struct{
         gl.bindBuffer(gl.BufferTarget.array_buffer,screen.vbufferId);
         gl.enableVertexAttribArray(0);
         gl.enableVertexArrayAttrib(screen.vao,0);
-        gl.vertexAttribPointer(0,2,gl.Type.float,false,@sizeOf(f32),0);
+        gl.vertexAttribPointer(0,3,gl.Type.float,false,@sizeOf(f32)*3,0);
         
         screen.indexBufferId = gl.genBuffer();
         gl.bindBuffer(gl.BufferTarget.element_array_buffer,screen.indexBufferId);
@@ -68,10 +70,53 @@ pub const Screen = struct{
 
     pub fn render(self: *Screen) void{
         gl.clearColor(0.5, 0.3, 0.3, 1.0);
-        gl.clear(.{.color = true,.depth = false, .stencil = false});
+        gl.clear(clear);
+
+        gl.useProgram(self.program);
+        gl.bindVertexArray(self.vao);
+        gl.bindBuffer(gl.BufferTarget.element_array_buffer,self.indexBufferId);
+        gl.drawElements(gl.PrimitiveType.triangles,self.indexBuffer.capacity,gl.ElementType.u32,null);
         glfwSwapBuffers(self.window);
 
 
+
+    }
+
+    pub fn setPixels(self: *Screen, pixels:  [] const u8) void{
+        
+        self.vertexBuffer.shrinkAndFree(0);
+        self.indexBuffer.shrinkAndFree(0);
+        var pixelCount : u32 = 0;
+        for(pixels) |val,i|{
+           var pixel = @intToFloat(f32,i);
+            if(val == 1){
+                pixelCount += 1;
+                self.vertexBuffer.appendSlice(&[4*3]f32 {
+                    0,0,pixel,
+                    1,0,pixel,
+                    1,1,pixel,
+                    0,1,pixel
+                }) catch |err|{
+                    std.debug.print("Couldnt insert mesh\n", .{});
+                };
+                
+                self.indexBuffer.appendSlice(&[_]u32{
+                0 * pixelCount, 
+                1 * pixelCount, 
+                2 * pixelCount,
+                2 * pixelCount,
+                3* pixelCount,
+                0*pixelCount})catch |err|{
+                    std.debug.print("Couldnt insert index buffer\n", .{});
+                };
+            }
+            
+        }
+
+        gl.bindBuffer(gl.BufferTarget.array_buffer,self.vbufferId);
+        gl.bufferData(gl.BufferTarget.array_buffer,f32,self.vertexBuffer.items[0..],gl.BufferUsage.static_draw);
+        gl.bindBuffer(gl.BufferTarget.element_array_buffer,self.indexBufferId);
+        gl.bufferData(gl.BufferTarget.element_array_buffer,u32, self.indexBuffer.items[0..],gl.BufferUsage.static_draw);
 
     }
 
