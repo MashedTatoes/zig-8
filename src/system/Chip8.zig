@@ -26,7 +26,7 @@ pub const Chip8 = struct{
     screenMemory: []u8,
     stack: Stack,
     key: u8 = 0,
-    allocator : *std.heap.ArenaAllocator,
+    allocator : std.heap.ArenaAllocator,
     instructionSet : InstructionSet,
     screen: Screen,
     stopExecution:bool = false,
@@ -36,9 +36,9 @@ pub const Chip8 = struct{
 
         //var heap :[32 + 4096 + (64*32) + 32] u8 = undefined;
         
-        const arena = &std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
         
-        const allocator = &arena.allocator;
+        var allocator = &arena.allocator;
         
 
         errdefer{
@@ -67,6 +67,10 @@ pub const Chip8 = struct{
         for (mem) |v,i|{
             mem[i] = 0;
         }
+        for(screenMemory) |v,i|{
+            screenMemory[i] = 0;
+        }
+        
         
         prng = rand.DefaultPrng.init(blk: {
             var seed : u64 = undefined;
@@ -188,6 +192,7 @@ pub const Chip8 = struct{
                 };
                 self.PC += 2;
             }
+            self.screen.setPixels(self.screenMemory);
             self.screen.render();
             self.screen.pollEvents();
             
