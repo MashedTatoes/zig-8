@@ -14,3 +14,4 @@ Using [Cowgods Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10
 | Sound | no | Probaly the last thing ill do |
 | Timers | no | |
 
+# WIP
