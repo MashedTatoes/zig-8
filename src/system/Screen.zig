@@ -73,7 +73,6 @@ pub const Screen = struct{
         };
         std.debug.print("{s}\n",.{@TypeOf(ortho)});
         gl.programUniformMatrix4(screen.program,gl.getUniformLocation(screen.program,"u_mvp"),false,&ortho);
-        gl.programUniform2f(screen.program,gl.getUniformLocation(screen.program,"pixelScreenSize"),pixel_screen_width,pixel_screen_height);
         gl.programUniform2f(screen.program,gl.getUniformLocation(screen.program,"pixelSize"),mesh_width,mesh_height);
         gl.bindBuffer(gl.BufferTarget.array_buffer,gl.Buffer.invalid);
         gl.bindBuffer(gl.BufferTarget.element_array_buffer,gl.Buffer.invalid);
@@ -112,12 +111,12 @@ pub const Screen = struct{
                 
                 const pixelY = @round( pixel /pixel_screen_width);
                 const pixelX = @mod( pixel, pixel_screen_width);
-                //std.debug.print("X: {}, Y: {}\n", .{pixelX,pixelY});
+                
                 self.vertexBuffer.appendSlice(&[4*4]f32 {
-                    0,0,pixelX,pixelY,
-                    mesh_width,0,pixelX,pixelY,
-                    mesh_width,mesh_height,pixelX,pixelY,
-                    0,mesh_height,pixelX,pixelY
+                    0,0,pixelX,pixelY, //Top left
+                    mesh_width,0,pixelX,pixelY, //Top right
+                    mesh_width,mesh_height,pixelX,pixelY, //Bottom right
+                    0,mesh_height,pixelX,pixelY //Bottom left
                 }) catch |err|{
                     std.debug.print("Couldnt insert mesh\n", .{});
                 };
