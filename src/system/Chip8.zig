@@ -1,5 +1,6 @@
 const std = @import("std");
 const Stack = @import("Stack.zig").Stack;
+const scr = @import("Screen.zig");
 const Screen = @import("Screen.zig").Screen;
 const fs = std.fs;
 const rand = std.rand;
@@ -71,7 +72,7 @@ pub const Chip8 = struct{
             screenMemory[i] = 0;
         }
         
-        
+       
         prng = rand.DefaultPrng.init(blk: {
             var seed : u64 = undefined;
             std.os.getrandom(std.mem.asBytes(&seed)) catch |err|{
@@ -87,7 +88,7 @@ pub const Chip8 = struct{
             .allocator = arena,
             .instructionSet = InstructionSet.init(),
             .stack = stack,
-            .screen = Screen.init()
+            .screen = Screen.init(1280,720)
         };
 
        try device.fillInstructionSet();
@@ -149,6 +150,7 @@ pub const Chip8 = struct{
         self.instructionSet.set[0xA] = Operation{.func = loadIAddr};
         self.instructionSet.set[0xB] = Operation{.func = jumpRegZero};
         self.instructionSet.set[0xC] = Operation{.func = rnd};
+        self.instructionSet.set[0xD] = Operation{.func = draw};
 
 
     }
@@ -229,6 +231,7 @@ pub const Chip8 = struct{
         const addr : u16 = data & 0x0FFF;
         std.debug.print("JMP \t {d}\n",.{addr});
         self.PC = addr;
+        
 
     }
 
@@ -285,7 +288,7 @@ pub const Chip8 = struct{
         const x = (data & 0x0F00) >> 8;
         const kk =  data & 0x00FF;
 
-        std.debug.print("ADD \t V{d},{d}",.{x,kk});
+        std.debug.print("ADD \t V{d},{d}\n",.{x,kk});
         self.V[x] += kk;
 
 
@@ -410,7 +413,30 @@ pub const Chip8 = struct{
 
     }
 
+    fn draw(self: *Chip8, data:u16) InstructionError!void{
+        const x = (data & 0x0F00) >> 8;
+        const y = (data & 0x00F0) >> 4;
+        const n = data & 0x000F;
+        var idx = self.V[x] + scr.pixel_screen_width * self.V[ y];
+        const spriteData :[]u8 = self.memory[self.I..self.I + n];
+        for(spriteData) |*sprite,i|{
+            //std.debug.print("{d}", .{sprite});
+            for( [_] u8{0,1,2,3,4,5,6,7}) |bit|{
+                
+                var spriteBit : u8 = sprite.*  & 1 ;
+                
+                
+                self.screenMemory[ idx + bit ] = spriteBit ^ self.screenMemory[idx + bit ];
+                
+                sprite.* /= 2;
+            }
+            idx += 8;
+            
+        }
+        std.debug.print("DRW \t x{d}, y{d}, {x}\n", .{self.V[x],self.V[y],n});
+        
 
+    }
 
 
 

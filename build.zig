@@ -22,6 +22,7 @@ pub fn build(b: *std.build.Builder) void {
     exe.addLibPath("deps/glfw/src/Release");
 
     exe.addPackagePath("gl","deps/zgl-glad/zgl.zig");
+    exe.addPackagePath("zlm","deps/zlm/zlm-generic.zig");
     exe.linkSystemLibrary("glfw3");
     exe.linkSystemLibrary("c");
     exe.linkSystemLibrary("opengl32");

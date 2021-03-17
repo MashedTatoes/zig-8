@@ -3,6 +3,8 @@ pub usingnamespace  @cImport(
     @cInclude("glfw/glfw3.h");
 });
 const gl = @import("gl");
+const math = @import("zlm");
+const Mat4 = math.Mat4;
 const Buffer = gl.Buffer;
 
 const std = @import("std");
@@ -12,6 +14,12 @@ const Allocator = std.mem.Allocator;
 const fragmentShader = @embedFile("./shader/c8frag.glsl");
 const vertexShader = @embedFile("./shader/c8vert.glsl");
 const clear = .{.color = true,.depth = false, .stencil = false};
+const math_f32 = math.specializeOn(f32);
+var mesh_width : f32 = 0.0;
+var mesh_height:f32 = 0.0;
+
+pub const pixel_screen_width = 64;
+pub const pixel_screen_height = 32;
 
 
 pub const Screen = struct{
@@ -23,20 +31,22 @@ pub const Screen = struct{
     vao : gl.VertexArray = undefined,
     allocator: *Allocator,
     program : gl.Program = undefined,
+    projection: math_f32.Mat4 = math_f32.Mat4.zero,
 
-
-
-    pub fn init() Screen{
+    pub fn init(width: f32, height: f32) Screen{
         if(glfwInit() == GL_FALSE){
             std.debug.print("Error init GLFW",.{});
         }
-        const window: ?*GLFWwindow = glfwCreateWindow(1024,780,"Zig-8!",null,null);
+        const window: ?*GLFWwindow = glfwCreateWindow(@floatToInt(c_int,width),@floatToInt(c_int,height),"Zig-8!",null,null);
         glfwMakeContextCurrent(window);
         var screen = Screen{
             .window = window,
-            .allocator = heap.c_allocator
+            .allocator = heap.c_allocator,
+            .projection = math_f32.Mat4.createOrthogonal(0,width,0,height,-1.0,1.0)
         };
 
+        mesh_width = width/pixel_screen_width;
+        mesh_height = height/pixel_screen_height;
         
         if(gl.gladLoadGL(@ptrCast(gl.gladLoadProc,glfwGetProcAddress)) == false){
             std.debug.print("Failed to load GLAD\n", .{});
@@ -52,12 +62,19 @@ pub const Screen = struct{
         gl.bindBuffer(gl.BufferTarget.array_buffer,screen.vbufferId);
         gl.enableVertexAttribArray(0);
         gl.enableVertexArrayAttrib(screen.vao,0);
-        gl.vertexAttribPointer(0,3,gl.Type.float,false,@sizeOf(f32)*3,0);
+        gl.vertexAttribPointer(0,4,gl.Type.float,false,@sizeOf(f32)*4,0);
         
         screen.indexBufferId = gl.genBuffer();
         gl.bindBuffer(gl.BufferTarget.element_array_buffer,screen.indexBufferId);
         screen.initShaderProgram(fragmentShader,vertexShader);
         gl.useProgram(screen.program);
+        const ortho =  [_] [4][4]f32{
+            screen.projection.fields
+        };
+        std.debug.print("{s}\n",.{@TypeOf(ortho)});
+        gl.programUniformMatrix4(screen.program,gl.getUniformLocation(screen.program,"u_mvp"),false,&ortho);
+        gl.programUniform2f(screen.program,gl.getUniformLocation(screen.program,"pixelScreenSize"),pixel_screen_width,pixel_screen_height);
+        gl.programUniform2f(screen.program,gl.getUniformLocation(screen.program,"pixelSize"),mesh_width,mesh_height);
         gl.bindBuffer(gl.BufferTarget.array_buffer,gl.Buffer.invalid);
         gl.bindBuffer(gl.BufferTarget.element_array_buffer,gl.Buffer.invalid);
         gl.useProgram(gl.Program.invalid);
@@ -69,7 +86,7 @@ pub const Screen = struct{
     }
 
     pub fn render(self: *Screen) void{
-        gl.clearColor(0.5, 0.3, 0.3, 1.0);
+        gl.clearColor(0, 0, 0, 1.0);
         gl.clear(clear);
 
         gl.useProgram(self.program);
@@ -89,29 +106,38 @@ pub const Screen = struct{
         var pixelCount : u32 = 0;
         for(pixels) |val,i|{
            var pixel = @intToFloat(f32,i);
+           
             if(val == 1){
                 
-                self.vertexBuffer.appendSlice(&[4*3]f32 {
-                    0,0,pixel,
-                    1,0,pixel,
-                    1,1,pixel,
-                    0,1,pixel
+                
+                const pixelY = @round( pixel /pixel_screen_width);
+                const pixelX = @mod( pixel, pixel_screen_width);
+                //std.debug.print("X: {}, Y: {}\n", .{pixelX,pixelY});
+                self.vertexBuffer.appendSlice(&[4*4]f32 {
+                    0,0,pixelX,pixelY,
+                    mesh_width,0,pixelX,pixelY,
+                    mesh_width,mesh_height,pixelX,pixelY,
+                    0,mesh_height,pixelX,pixelY
                 }) catch |err|{
                     std.debug.print("Couldnt insert mesh\n", .{});
                 };
                 
                 self.indexBuffer.appendSlice(&[_]u32{
-                0 * pixelCount, 
-                1 * pixelCount, 
-                2 * pixelCount,
-                2 * pixelCount,
-                3* pixelCount,
-                0*pixelCount})catch |err|{
+                (4 * pixelCount) + 0, 
+                (4 * pixelCount) + 1, 
+                (4 * pixelCount) + 2,
+                (4 * pixelCount) + 2,
+                (4* pixelCount)+ 3,
+                (4*pixelCount) + 0})catch |err|{
                     std.debug.print("Couldnt insert index buffer\n", .{});
                 };
+                pixelCount += 1;
             }
             
         }
+       
+
+        
 
         gl.bindBuffer(gl.BufferTarget.array_buffer,self.vbufferId);
         gl.bufferData(gl.BufferTarget.array_buffer,f32,self.vertexBuffer.items[0..],gl.BufferUsage.static_draw);
