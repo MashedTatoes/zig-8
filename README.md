@@ -8,6 +8,9 @@ Using [Cowgods Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10
 | Feature      | Working           | Note  |
 | ------------- |-------------| -----|
 | Full instruction set    | no | 00E0 - Dxyn implemented |
+| Memory | yes | |
 | Renderer      | yes      |    |
 | Input | no      | It's next on the list and should be easy |
-| Sound | No | Probaly the last thing ill do |
+| Sound | no | Probaly the last thing ill do |
+| Timers | no | |
+
