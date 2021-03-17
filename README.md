@@ -1,4 +1,4 @@
-# zig8
+# zig-8
 
 CHIP-8 Interpreter in the Zig programming language
 
