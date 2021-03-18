@@ -28,6 +28,10 @@ pub const Stack = struct{
 
     }
 
+    pub fn deinit(self: *Stack) void{
+        self.allocator.free(self.buff);
+    }
+
     pub fn push(self: *Stack,val : u16) StackError!void{
         if(self.idx + 1 > self.buff.len){
             return StackError.OutOfRange;

@@ -5,12 +5,16 @@ const Screen = @import("Screen.zig").Screen;
 const fs = std.fs;
 const rand = std.rand;
 const Allocator = std.mem.Allocator;
+const Keyboard = @import("Keyboard.zig").Keyboard;
 pub const Chip8Error = error{
     Chip8InitError,
     ProgramOpenError,
     ProgramTooLarge,
-    CouldNotFindProgram
+    CouldNotFindProgram,
+    IllegalInstruction
 };
+
+
 
 var prng : std.rand.Xoroshiro128 = undefined;
 
@@ -90,8 +94,8 @@ pub const Chip8 = struct{
             .stack = stack,
             .screen = Screen.init(1280,720)
         };
-
-       try device.fillInstructionSet();
+        Keyboard.init(device.screen.window);
+        try device.fillInstructionSet();
 
         return  device;
 
@@ -100,7 +104,10 @@ pub const Chip8 = struct{
     pub fn deinit(self: *Chip8) void {
         self.allocator.deinit();
         self.screen.deinit();
+        self.stack.deinit();
     }
+
+
 
     pub fn loadProgram(self:*Chip8,rom: []const u8 ) Chip8Error!u64{
         
@@ -151,6 +158,7 @@ pub const Chip8 = struct{
         self.instructionSet.set[0xB] = Operation{.func = jumpRegZero};
         self.instructionSet.set[0xC] = Operation{.func = rnd};
         self.instructionSet.set[0xD] = Operation{.func = draw};
+        self.instructionSet.set[0xE] = Operation{.func = skpKey};
 
 
     }
@@ -207,6 +215,7 @@ pub const Chip8 = struct{
             self.screen.setPixels(self.screenMemory);
             self.screen.render();
             self.screen.pollEvents();
+            self.key = Keyboard.currentKeyPressed;
             
             
         }
@@ -436,6 +445,25 @@ pub const Chip8 = struct{
         std.debug.print("DRW \t x{d}, y{d}, {x}\n", .{self.V[x],self.V[y],n});
         
 
+    }
+
+    pub fn skpKey(self: *Chip8, data:u16) InstructionError!void{
+        const x = (data & 0x0F00) >> 8;
+        const lower = data & 0x00FF;
+        switch(lower) {
+            0x9E =>{
+                if(self.key == self.V[x]){
+                    self.PC += 2;
+                }
+            },
+            0xA1 =>{
+                if(self.key != self.V[x]){
+                    self.PC += 2;
+                }
+            },
+            else =>{ return InstructionError.NotImplemented;}
+        }
+        
     }
 
 

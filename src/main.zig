@@ -32,8 +32,10 @@ pub fn main() anyerror!void {
     
     var device : Chip8 = try Chip8.init(); 
     try device.loadRom(rom);
+    std.heap.c_allocator.free(rom);
     device.run(rom.len);
     
+
     device.deinit();
     
 }

@@ -1,9 +1,7 @@
-pub usingnamespace  @cImport(
-{ 
-    @cInclude("glfw/glfw3.h");
-});
+
 const gl = @import("gl");
 const math = @import("zlm");
+const glfw = @import("glfw");
 const Mat4 = math.Mat4;
 const Buffer = gl.Buffer;
 
@@ -23,7 +21,7 @@ pub const pixel_screen_height = 32;
 
 
 pub const Screen = struct{
-    window: ?*GLFWwindow = undefined,
+    window: ?*glfw.Window = undefined,
     vbufferId: gl.Buffer = undefined,
     vertexBuffer : std.ArrayList(f32) = undefined,
     indexBufferId: gl.Buffer = undefined,
@@ -34,11 +32,11 @@ pub const Screen = struct{
     projection: math_f32.Mat4 = math_f32.Mat4.zero,
 
     pub fn init(width: f32, height: f32) Screen{
-        if(glfwInit() == GL_FALSE){
+        if(glfw.init() == false){
             std.debug.print("Error init GLFW",.{});
         }
-        const window: ?*GLFWwindow = glfwCreateWindow(@floatToInt(c_int,width),@floatToInt(c_int,height),"Zig-8!",null,null);
-        glfwMakeContextCurrent(window);
+        const window: ?*glfw.Window = glfw.createWindow(@floatToInt(i32,width),@floatToInt(i32,height),"Zig-8!",null,null);
+        glfw.makeContextCurrent(window);
         var screen = Screen{
             .window = window,
             .allocator = heap.c_allocator,
@@ -48,7 +46,7 @@ pub const Screen = struct{
         mesh_width = width/pixel_screen_width;
         mesh_height = height/pixel_screen_height;
         
-        if(gl.gladLoadGL(@ptrCast(gl.gladLoadProc,glfwGetProcAddress)) == false){
+        if(gl.gladLoadGL(@ptrCast(gl.gladLoadProc,glfw.getProcAddress)) == false){
             std.debug.print("Failed to load GLAD\n", .{});
         }
         gl.enable(gl.Capabilities.debug_output);
@@ -92,7 +90,7 @@ pub const Screen = struct{
         gl.bindVertexArray(self.vao);
         gl.bindBuffer(gl.BufferTarget.element_array_buffer,self.indexBufferId);
         gl.drawElements(gl.PrimitiveType.triangles,self.indexBuffer.capacity,gl.ElementType.u32,null);
-        glfwSwapBuffers(self.window);
+        glfw.swapBuffers(self.window);
 
 
 
@@ -146,16 +144,18 @@ pub const Screen = struct{
     }
 
     pub fn pollEvents(self: *Screen) void{
-        glfwPollEvents();
+        glfw.pollEvents();
     }
 
     pub fn shouldClose(self: *Screen) bool{
         
-        return  glfwWindowShouldClose(self.window) != 0;
+        return  glfw.windowShouldClose(self.window) != false;
     }
 
     pub fn deinit(self: *Screen) void{
-        glfwTerminate();
+        glfw.terminate();
+        self.vertexBuffer.shrinkAndFree(0);
+        self.indexBuffer.shrinkAndFree(0);
     }
 
     fn loadShaders(self: *Screen) void{
@@ -204,6 +204,4 @@ pub const Screen = struct{
     
 
 };
-
-
 
