@@ -49,3 +49,7 @@ pub fn terminate() void{
     c.glfwTerminate();
 }
 
+pub fn waitEvents() void{
+    c.glfwWaitEvents();
+}
+

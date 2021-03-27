@@ -2,6 +2,7 @@ const std = @import("std");
 const Stack = @import("Stack.zig").Stack;
 const scr = @import("Screen.zig");
 const Screen = @import("Screen.zig").Screen;
+const Timer = @import("Timer.zig").Timer;
 const fs = std.fs;
 const rand = std.rand;
 const Allocator = std.mem.Allocator;
@@ -25,7 +26,7 @@ pub const Chip8 = struct{
     I: u16 = 0,
     SP: u16 = 0,
     PC: u16 = 0x200,
-    delay: u8 = 0,
+    delay: *u16 = undefined,
     sound: u8 = 0,
     memory: []u8,
     screenMemory: []u8,
@@ -35,6 +36,7 @@ pub const Chip8 = struct{
     instructionSet : InstructionSet,
     screen: Screen,
     stopExecution:bool = false,
+    delayTimer : Timer = undefined,
     
 
     pub fn init() Chip8Error!Chip8 {
@@ -66,6 +68,11 @@ pub const Chip8 = struct{
            return Chip8Error.Chip8InitError;
         };
         
+        var delay : *u16= allocator.create(u16) catch |err|{
+            return Chip8Error.Chip8InitError;
+        };
+
+        
         for (register) |v, i|{
             register[i] = 0;
         }
@@ -92,8 +99,13 @@ pub const Chip8 = struct{
             .allocator = arena,
             .instructionSet = InstructionSet.init(),
             .stack = stack,
-            .screen = Screen.init(1280,720)
+            .screen = Screen.init(1280,720),
+            .delay = delay
+            
         };
+        
+
+        device.delayTimer = Timer.init(device.delay,60);
         Keyboard.init(device.screen.window);
         try device.fillInstructionSet();
 
@@ -159,6 +171,7 @@ pub const Chip8 = struct{
         self.instructionSet.set[0xC] = Operation{.func = rnd};
         self.instructionSet.set[0xD] = Operation{.func = draw};
         self.instructionSet.set[0xE] = Operation{.func = skpKey};
+        self.instructionSet.set[0xF] = Operation{.func = misc};
 
 
     }
@@ -196,7 +209,7 @@ pub const Chip8 = struct{
                 var instruction : u16 = 0;
                 instruction = ((instruction | self.memory[self.PC]) <<8) | self.memory[self.PC + 1]; 
 
-                std.debug.print("{d} {d} \t", .{self.PC,instruction});
+                std.debug.print("{x} {x} \t", .{self.PC,instruction});
                 self.executeInstruction(instruction) catch |err|{
                     switch(err) {
                         error.NotImplemented => {
@@ -212,16 +225,33 @@ pub const Chip8 = struct{
                 };
                 self.PC += 2;
             }
+            
+            
             self.screen.setPixels(self.screenMemory);
             self.screen.render();
             self.screen.pollEvents();
             self.key = Keyboard.currentKeyPressed;
+            self.delayTimer.update();
             
             
         }
     }
 
 
+    
+    pub fn startTimer(self : *Chip8, register: *u8,frequency: u8) void{
+
+        const rate = 1.0/@intToFloat(f32,frequency);
+        while(true){
+            var lastUpdate = std.time.milliTimestamp();
+            suspend;
+            var timestamp = std.time.milliTimestamp();
+            std.debug.print("{d}", .{timestamp - lastUpdate});
+
+
+        }
+
+    }
 
     fn clear() InstructionError!void{
         std.debug.print("Clear",.{});
@@ -240,6 +270,7 @@ pub const Chip8 = struct{
         const addr : u16 = data & 0x0FFF;
         std.debug.print("JMP \t {d}\n",.{addr});
         self.PC = addr;
+        self.PC -= 2;
         
 
     }
@@ -447,6 +478,7 @@ pub const Chip8 = struct{
 
     }
 
+
     pub fn skpKey(self: *Chip8, data:u16) InstructionError!void{
         const x = (data & 0x0F00) >> 8;
         const lower = data & 0x00FF;
@@ -455,8 +487,10 @@ pub const Chip8 = struct{
                 if(self.key == self.V[x]){
                     self.PC += 2;
                 }
+                std.debug.print("SKP K = V{d}\n", .{x});
             },
             0xA1 =>{
+                std.debug.print("SKP K != V{d}\n", .{x});
                 if(self.key != self.V[x]){
                     self.PC += 2;
                 }
@@ -464,6 +498,41 @@ pub const Chip8 = struct{
             else =>{ return InstructionError.NotImplemented;}
         }
         
+    }
+
+    pub fn misc (self: *Chip8, data:u16) InstructionError!void{
+        const x = (data & 0x0F00) >> 8;
+        const lower = data & 0x00FF;
+        switch(lower) {
+            0x07 => {
+                    self.V[x] = self.delay.*; 
+                    std.debug.print("LD \t DT, V{d}\n", . {x});
+
+                },
+            0x0A => {
+                self.key = 0xFF;
+                std.debug.print("LD \t V{d}, Key\n", .{x});
+                while(self.key == 0xFF){
+                    Keyboard.blockForEvents();
+                    self.key = Keyboard.currentKeyPressed;
+                }
+                self.V[x] = self.key;
+            },
+            0x15 => self.delay.* = self.V[x],
+            //TODO : 0x18
+            0x1E =>  {
+                std.debug.print("ADD \t I, V{d}\n", .{x});
+                self.I += self.V[x];
+            },
+            else => {
+                std.debug.print("UNHANDLED\n", .{});
+            }
+
+
+
+            
+        }
+
     }
 
 

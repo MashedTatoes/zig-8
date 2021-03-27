@@ -18,6 +18,12 @@ pub const Keyboard = struct{
 
     }
 
+    pub fn blockForEvents() void {
+        glfw.waitEvents();
+    }
+
+
+
     fn mapKey(key : c_int) u8 {
         return switch(key){
              81 => 1,

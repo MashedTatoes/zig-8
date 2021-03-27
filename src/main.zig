@@ -18,6 +18,9 @@ pub fn readFile(path: []const u8, allocator: *Allocator) anyerror![]u8{
 
 }
 
+    pub fn testFn() !?u8 {
+        return 1;
+    }
 
 pub fn main() anyerror!void {
     
@@ -25,6 +28,7 @@ pub fn main() anyerror!void {
     const stdout = std.io.getStdOut().writer();
     try stdout.print("Enter program path:\n",.{});
     var buffer : [128]u8 = undefined;
+    
     var inputSize = try stdin.read(&buffer);
     const line = std.mem.trimRight(u8,buffer[0..inputSize],"\r\n");
     var rom : []u8 = try readFile(line,std.heap.c_allocator);
@@ -34,7 +38,7 @@ pub fn main() anyerror!void {
     try device.loadRom(rom);
     std.heap.c_allocator.free(rom);
     device.run(rom.len);
-    
+
 
     device.deinit();
     
