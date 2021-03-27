@@ -15,3 +15,5 @@ Using [Cowgods Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10
 | Timers | almost | Delay timer, need to do sound timer |
 
 # WIP
+
+The "countdown.ch8" program should work in the interpreters current state.
