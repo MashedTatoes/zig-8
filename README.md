@@ -7,11 +7,11 @@ Using [Cowgods Technical Reference](http://devernay.free.fr/hacks/chip8/C8TECH10
 
 | Feature      | Working           | Note  |
 | ------------- |-------------| -----|
-| Full instruction set    | no | 00E0 - ExA1 implemented |
+| Full instruction set    | no | 00E0 - Fx1E implemented |
 | Memory | yes | |
 | Renderer      | yes      |    |
-| Input | no      | It's next on the list and should be easy |
+| Input | yes      |  |
 | Sound | no | Probaly the last thing ill do |
-| Timers | no | |
+| Timers | almost | Delay timer, need to do sound timer |
 
 # WIP
