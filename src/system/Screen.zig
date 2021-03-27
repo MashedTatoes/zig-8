@@ -40,7 +40,7 @@ pub const Screen = struct{
         var screen = Screen{
             .window = window,
             .allocator = heap.c_allocator,
-            .projection = math_f32.Mat4.createOrthogonal(0,width,0,height,-1.0,1.0)
+            .projection = math_f32.Mat4.createOrthogonal(0,width,height,0,-1.0,1.0)
         };
 
         mesh_width = width/pixel_screen_width;

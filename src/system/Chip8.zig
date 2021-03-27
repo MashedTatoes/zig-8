@@ -180,7 +180,7 @@ pub const Chip8 = struct{
         const lowerByte = data & 0x00FF;
         
         try switch(data){
-            0x00E0 => clear(),
+            0x00E0 => clear(self),
             0x00EE => ret(self),
 
             else => return InstructionError.NotImplemented,
@@ -253,8 +253,11 @@ pub const Chip8 = struct{
 
     }
 
-    fn clear() InstructionError!void{
-        std.debug.print("Clear",.{});
+    fn clear(self: *Chip8) InstructionError!void{
+        for(self.screenMemory) |v,i|{
+            self.screenMemory[i] = 0;
+        }
+        std.debug.print("CLR\n",.{});
     }
 
     fn ret(self: *Chip8) InstructionError!void{
@@ -461,7 +464,7 @@ pub const Chip8 = struct{
         const spriteData :[]u8 = self.memory[self.I..self.I + n];
         for(spriteData) |*sprite,i|{
             //std.debug.print("{d}", .{sprite});
-            for( [_] u8{0,1,2,3,4,5,6,7}) |bit|{
+            for( [_] u8{7,6,5,4,3,2,1,0}) |bit|{
                 
                 var spriteBit : u8 = sprite.*  & 1 ;
                 
